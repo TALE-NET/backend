@@ -1,12 +1,11 @@
-import { userModel } from "../models/usermodel";
-import { userSchema } from "../schema/user_schema.js";
+import { userModel } from "../models/usermodel.js";
+import { userSchema, loginValidator } from "../schema/userschema.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 
-export const signup = async (req, res, next) => {
+export const signup = async (req, res) => {
     try {
         console.log('Received signup request:', req.body);
-
         // Validate the data provided by the user
         const { error, value } = userSchema.validate(req.body);
         if (error) {
@@ -23,19 +22,28 @@ export const signup = async (req, res, next) => {
         if (findIfUserExist) {
             console.log('User already exists:', findIfUserExist);
             return res.status(401).send("User has already signed up");
-        } else {
+            
+        } 
+        
+        else {
             console.log('User does not exist, creating new user');
+
+            // Password matching
+            if (value.password !== value.confirmpassword)return res.status(400).json({message:"Password do not match"})
+
             // Encrypt user password
             const hashedPassword = await bcrypt.hash(value.password, 12);
             value.password = hashedPassword;
-            delete value.confirmPassword; // Remove confirmPassword from the value object
+            delete value.confirmpassword; // Remove confirmpassword from the value object
 
             // Create user
             const newUser = await userModel.create(value);
             console.log('New user created:', newUser);
 
             return res.status(201).json({ message: "Registration successful" });
-        }
+
+           
+        }        
     } catch (error) {
         console.error('Error during signup:', error);
         return res.status(500).send('Internal Server Error');
@@ -47,21 +55,21 @@ export const signup = async (req, res, next) => {
 // Function for session log in
 export const sessionLogin = async (req, res,next) => {
     try {
-        const { userName, email, password } = req.body;
+        const { username, email, password } = req.body;
 
-        // Find a user using their userName or email
+        // Find a user using their username or email
         const user = await userModel.findOne({
             $or: [
                 { email },
-                { userName }
+                { username }
             ]
         });
         if (!user) {
             return  res.status(401).json('User not found');
         } else {
             // Verify their password
-            const correctPassword = bcrypt.compareSync(password, user.password);
-            if (!correctPassword) {
+            const correctpassword = bcrypt.compareSync(password, user.password);
+            if (!correctpassword) {
                 return   res.status(401).json('Invalid login credentials');
             } else {
                 // Generate a session for the user
@@ -78,21 +86,21 @@ export const sessionLogin = async (req, res,next) => {
 // Function for token log in
 export const tokenLogin = async (req, res, next) => {
     try {
-        const { userName, email, password } = req.body;
+        const { username, email, password } = req.body;
         
-        // Find a user using their userName or email
+        // Find a user using their username or email
         const user = await userModel.findOne({
             $or: [
                 { email: email },
-                { userName: userName }
+                { username: username }
             ]
         });
         if (!user) {
             return  res.status(401).json('User not found');
         } else {
             // Verify their password
-            const correctPassword = bcrypt.compareSync(password, user.password);
-            if (!correctPassword) {
+            const correctpassword = bcrypt.compareSync(password, user.password);
+            if (!correctpassword) {
                 return res.status(401).json('Invalid login credentials');
             } else {
                 // Create a token for the user
@@ -105,9 +113,9 @@ export const tokenLogin = async (req, res, next) => {
                     message: 'User logged in',
                     accessToken: token,
                     user: {
-                        firstName: user.firstName,
-                        lastName: user.lastName,
-                        userName: user.userName
+                        firstname: user.firstname,
+                        lastname: user.lastname,
+                        username: user.username
                     }
                 });
             }
@@ -122,19 +130,24 @@ export const tokenLogin = async (req, res, next) => {
 // Function to get everything about one user
 export const getUser = async (req, res,next) => {
     try {
-        const userName = req.params.userName.toLowerCase();
+          // Validate request
+          const { value, error } = loginValidator.validate(req.body);
+          if (error) {
+              return res.status(422).json(error);
+          }
+        const username = req.params.username.toLowerCase();
         const options = { sort: {startDate: -1 }}
         // Get user details
         const getUserDetails = await userModel
-            .findOne({userName})
+            .findOne({username})
             .select({password: false })
-            .populate({path: 'userProfile', options})
-            .populate({path: 'education', options})
-            .populate({path: 'experience', options})
-            .populate({path: 'skills', options})
-            .populate({path: 'achievements', options: { sort: { date: -1 }}})
-            .populate({path: 'projects', options})
-            .populate({path: 'volunteering', options});
+            // .populate({path: 'userProfile', options})
+            // .populate({path: 'education', options})
+            // .populate({path: 'experience', options})
+            // .populate({path: 'skills', options})
+            .populate({path: 'product', options: { sort: { date: -1 }}})
+            // .populate({path: 'projects', options})
+            // .populate({path: 'volunteering', options});
         // Return response
         return res.status(200).json({user: getUserDetails})
     } catch (error) {
@@ -147,22 +160,22 @@ export const getUser = async (req, res,next) => {
 // Function to get all users to cross-check if a username already exists
 export const getUsers = async (req, res, next) => {
     try {
-        // Extract email and userName from query parameters to convert to lower case
+        // Extract email and username from query parameters to convert to lower case
         const email = req.query.email?.toLowerCase()
-        const userName = req.query.userName?.toLowerCase();
+        const username = req.query.username?.toLowerCase();
 
         // Initialise the filter object
         const filter = {};
         if (email) {
             filter.email = email;
         }
-        if (userName) {
-            filter.userName = userName;
+        if (username) {
+            filter.username = username;
         }
         // Find users based on the filter
-        const users = await userModel.find(filter);
+        const user = await userModel.find(filter);
         // Return response
-        return res.status(200).json({ users });
+        return res.status(200).json({user});
     } catch (error) {
         next(error)
     }
