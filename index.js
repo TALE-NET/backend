@@ -9,45 +9,45 @@ import errorHandler from "errorhandler";
 import { userRouter } from "./routes/userroute.js";
 import adminRouter from "./routes/admin.js";
 import { productRouter } from "./routes/products.js";
+import passport from 'passport';
+import './config/passport.js'; 
+import { companyRouter } from "./routes/company.js";
+import { eventRouter } from "./routes/event.js";
+import { userProfileRouter } from "./routes/profile.js";
+
 
 const app = express();
 
+// Connect to database
+await mongoose.connect(process.env.MONGO_URL);
+console.log('Database is connected');
+
 expressOasGenerator.handleResponses(app, {
     alwaysServeDocs: true,
-    tags: [ 'users', 'products'
-        // 'auth', 'userProfile', 'skills', 'projects', 'volunteering', 'experiences', 'education', 'achievements'
-    ],
+    tags: [ 'auth','users', 'product','profile', 'company', 'event'],
     mongooseModels: mongoose.modelNames(),
 });
 
-app.post('/send-email', async (req, res) => {
-    const { to, subject, text, html } = req.body;
-    try {
-        await sendMail(to, subject, text, html);
-        res.status(200).send('Email sent successfully');
-    } catch (error) {
-        res.status(500).send('Error sending email');
-    }
-})
 
 // Apply middlewares
+app.use(cors({
+    credentials: true,
+    origin: process.env.ALLOWED_DOMAINS?.split(',') || []
+}));
 app.use(express.json());
-// app.use(cors({
-//     credentials: true,
-//     origin: process.env.ALLOWED_DOMAINS?.split(',') || []
-// }));
+
 app.use(cors({ credentials: true, origin: '*' }));
 
 app.use(session({
     secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: true,
-    // cookie: { secure: true }
-    // Store session
     store: MongoStore.create({
         mongoUrl: process.env.MONGO_URL
     })
 }));
+
+
 
 // Health Check
 app.get('/api/v1/health', (req, res) => {
@@ -58,14 +58,16 @@ app.get('/api/v1/health', (req, res) => {
 app.use(adminRouter);
 app.use(userRouter);
 app.use(productRouter);
+app.use(companyRouter);
+app.use(userProfileRouter);
+app.use(eventRouter);
 expressOasGenerator.handleRequests();
 // Swagger UI should be served last to avoid conflicts with API routes
 app.use((req, res) => res.redirect('/api-docs/'));
 app.use(errorHandler({ log: false }));
+app.use(passport.initialize());
+app.use(passport.session());
 
-// Connect to database
-await mongoose.connect(process.env.MONGO_URL);
-console.log('Database is connected');
 
 // Listen for incoming requests
 const port = process.env.PORT || 4600;

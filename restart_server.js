@@ -1,6 +1,6 @@
 import axios, { HttpStatusCode } from "axios";
 
-const healthCheckUrl = 'http://localhost:4800/api/v1/health';
+const healthCheckUrl = 'http://localhost:4600/api/v1/health';
 
 export const restartServer = async () => {
     try {
