@@ -3,24 +3,34 @@ export const roles = [
         role: 'admin',
         permissions: [
             'create_product',
-            // 'read_product',
             'delete_product',
             'update_product',
+            'create_event',
+            'delete_event',
+            'update_event',
+            'create_company',
+            'delete_company',
+            'update_company',
+            'update_profile',
+            'delete_profile',
             'update_user',
             'delete_user',
-            'update_profile',
-            'delete_profile'
         ]
     },
     {
         role: 'vendor',
         permissions: [
             'create_product',
-            // 'read_product',
             'delete_product',
             'update_product',
+            'create_event',
+            'delete_event',
+            'update_event',
+            'create_company',
+            'delete_company',
+            'update_company',
             'update_profile',
-            'delete_profile'
+            // 'delete_profile'
         ]
     },
     {

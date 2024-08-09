@@ -8,13 +8,13 @@ import { Router } from "express";
 
 export const productRouter = Router()
 
-productRouter.post('/user/product', auth, hasPermission('create_product'), remoteUpload.single('image'), createProduct);
+productRouter.post('/users/product', auth, hasPermission('create_product'), remoteUpload.fields([{ name: "image", maxCount: 1 }]), createProduct);
 
-productRouter.get('/user/product', getAllProduct);
+productRouter.get('/users/product', getAllProduct);
 
-productRouter.get('/user/product/:id', getOneProduct);
+productRouter.get('/users/product/:id', getOneProduct);
 
-productRouter.patch('/user/product/:id',auth, hasPermission('update_product'), remoteUpload.single('image'),  updateProduct);
+productRouter.patch('/users/product/:id',auth, hasPermission('update_product'), remoteUpload.fields([{ name: "image", maxCount: 1 }]),  updateProduct);
 
-productRouter.delete('/user/product/:id', auth,  hasPermission('delete_product'),deleteProduct);
+productRouter.delete('/users/product/:id', auth,  hasPermission('delete_product'),deleteProduct);
 

@@ -1,9 +1,9 @@
-import { userModel } from "../models/usermodel.js";
-import { userSchema, loginValidator } from "../schema/userschema.js";
+import { ResetTokenModel, userModel } from "../models/usermodel.js";
+import { userSchema, loginValidator, forgotPasswordValidator, resetPasswordValidator, createUserValidator, updateUserValidator } from "../schema/userschema.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 
-export const signup = async (req, res) => {
+export const signup = async (req, res,next) => {
     try {
         console.log('Received signup request:', req.body);
         // Validate the data provided by the user
@@ -21,8 +21,7 @@ export const signup = async (req, res) => {
 
         if (findIfUserExist) {
             console.log('User already exists:', findIfUserExist);
-            return res.status(401).send("User has already signed up");
-            
+            return res.status(401).send("User has already signed up");   
         } 
         
         else {
@@ -32,12 +31,12 @@ export const signup = async (req, res) => {
             if (value.password !== value.confirmpassword)return res.status(400).json({message:"Password do not match"})
 
             // Encrypt user password
-            const hashedPassword = await bcrypt.hash(value.password, 12);
-            value.password = hashedPassword;
-            delete value.confirmpassword; // Remove confirmpassword from the value object
-
+            const hashedPassword = await bcrypt.hashSync(value.password, 10);
             // Create user
-            const newUser = await userModel.create(value);
+            await userModel.create({
+                ... value,
+                password:hashedPassword
+            });
             console.log('New user created:', newUser);
 
             return res.status(201).json({ message: "Registration successful" });
@@ -45,9 +44,9 @@ export const signup = async (req, res) => {
            
         }        
     } catch (error) {
-        console.error('Error during signup:', error);
-        return res.status(500).send('Internal Server Error');
-        // next(error)
+        // console.error('Error during signup:', error);
+        // return res.status(500).send('Internal Server Error');
+        next(error)
     }
 };
 
@@ -55,20 +54,23 @@ export const signup = async (req, res) => {
 // Function for session log in
 export const sessionLogin = async (req, res,next) => {
     try {
-        const { username, email, password } = req.body;
+        const { value, error} = loginValidator.validate(req.body);
+        if (error) {
+            return res.status(422).json(error);
+        }
 
         // Find a user using their username or email
         const user = await userModel.findOne({
             $or: [
-                { email },
-                { username }
+                { username: value.username },
+                { email: value.email },
             ]
         });
         if (!user) {
             return  res.status(401).json('User not found');
         } else {
             // Verify their password
-            const correctpassword = bcrypt.compareSync(password, user.password);
+            const correctpassword = bcrypt.compareSync(value.password, user.password);
             if (!correctpassword) {
                 return   res.status(401).json('Invalid login credentials');
             } else {
@@ -86,25 +88,29 @@ export const sessionLogin = async (req, res,next) => {
 // Function for token log in
 export const tokenLogin = async (req, res, next) => {
     try {
-        const { username, email, password } = req.body;
-        
+       // Validate request
+       const { value, error } = loginValidator.validate(req.body);
+       if (error) {
+           return res.status(422).json(error);
+       }
         // Find a user using their username or email
         const user = await userModel.findOne({
             $or: [
-                { email: email },
-                { username: username }
+                { username: value.username },
+                { email: value.email },
             ]
         });
         if (!user) {
             return  res.status(401).json('User not found');
         } else {
             // Verify their password
-            const correctpassword = bcrypt.compareSync(password, user.password);
+            const correctpassword = bcrypt.compareSync(value.password, user.password);
             if (!correctpassword) {
                 return res.status(401).json('Invalid login credentials');
             } else {
                 // Create a token for the user
-                const token = jwt.sign({ id: user.id},
+                const token = jwt.sign(
+                    { id: user.id},
                      process.env.JWT_PRIVATE_KEY,
                     { expiresIn: '72h' }
                     );
@@ -112,11 +118,11 @@ export const tokenLogin = async (req, res, next) => {
                 return  res.status(200).json({
                     message: 'User logged in',
                     accessToken: token,
-                    user: {
-                        firstname: user.firstname,
-                        lastname: user.lastname,
-                        username: user.username
-                    }
+                    // user: {
+                    //     firstname: user.firstname,
+                    //     lastname: user.lastname,
+                    //     username: user.username
+                    // }
                 });
             }
         }
@@ -130,26 +136,13 @@ export const tokenLogin = async (req, res, next) => {
 // Function to get everything about one user
 export const getUser = async (req, res,next) => {
     try {
-          // Validate request
-          const { value, error } = loginValidator.validate(req.body);
-          if (error) {
-              return res.status(422).json(error);
-          }
-        const username = req.params.username.toLowerCase();
-        const options = { sort: {startDate: -1 }}
-        // Get user details
+        // Get user id from session or request
+          const id = req.session?.user?.id || req?.user?.id;
+        // Get user details/Find user by id
         const getUserDetails = await userModel
-            .findOne({username})
+            .findById(id)
             .select({password: false })
-            // .populate({path: 'userProfile', options})
-            // .populate({path: 'education', options})
-            // .populate({path: 'experience', options})
-            // .populate({path: 'skills', options})
-            .populate({path: 'product', options: { sort: { date: -1 }}})
-            // .populate({path: 'projects', options})
-            // .populate({path: 'volunteering', options});
-        // Return response
-        return res.status(200).json({user: getUserDetails})
+         res.status(200).json({user: getUserDetails})
     } catch (error) {
         next(error)
         console.log(error)
@@ -173,7 +166,9 @@ export const getUsers = async (req, res, next) => {
             filter.username = username;
         }
         // Find users based on the filter
-        const user = await userModel.find(filter);
+        const user = await userModel
+        .find(filter)
+        .select({password:false})
         // Return response
         return res.status(200).json({user});
     } catch (error) {
@@ -184,11 +179,16 @@ export const getUsers = async (req, res, next) => {
 
 
 // Function to update a user account
-export const patchUser = async (req, res,next) => {
+export const updateUser = async (req, res,next) => {
     try {
+            // Validate request
+            const { value, error } = updateUserValidator.validate(req.body);
+            if (error) {
+                return res.status(422).json(error);
+            }
         // Update user by id
-        const updatedUser = await userModel.findByIdAndUpdate(req.params.id, req.body, { new: true });
-        return  res.status(200).json(updatedUser);
+     await userModel.findByIdAndUpdate(req.params.id, value, { new: true });
+        return  res.status(200).json('User Information is Updated');
     } catch (error) {
         console.log(error)
         next(error)
@@ -209,3 +209,128 @@ export const logout = async (req, res,next) => {
         next(error)
     }
 };
+
+
+export const forgotPassword = async (req, res, next) => {
+    try {
+        // Validate request
+        const { value, error } = forgotPasswordValidator.validate(req.body);
+        if (error) {
+            return res.status(422).json(error);
+        }
+        // Find a user with provided email
+        const user = await userModel.findOne({ email: value.email });
+        if (!user) {
+            return res.status(404).json('User Not Found');
+        }
+        // Generate reset token
+        const resetToken = await ResetTokenModel.create({ userId: user.id });
+        // Send reset email
+        await mailTransport.sendMail({
+            to: value.email,
+            subject: 'Reset Your Password',
+            html: `
+            <h1>Hello ${user.name}</h1>
+            <h1>Please follow the link below to reset your password.</h1>
+            <a href="${process.env.FRONTEND_URL}/reset-password/${resetToken.id}">Click Here</a>
+            `
+        });
+        // Return response
+        res.status(200).json('Password Reset Mail Sent!');
+    } catch (error) {
+        next(error);
+    }
+}
+
+
+export const verifyResetToken = async (req, res, next) => {
+    try {
+        // Find Reset Token by id
+        const resetToken = await ResetTokenModel.findById(req.params.id);
+        if (!resetToken) {
+            return res.status(404).json('Reset Token Not Found');
+        }
+        // Check if token is valid
+        if (resetToken.expired || (Date.now() >= new Date(resetToken.expiresAt).valueOf())) {
+            return res.status(409).json('Invalid Reset Token');
+        }
+        // Return response
+        res.status(200).json('Reset Token is Valid!');
+    } catch (error) {
+        next(error);
+    }
+}
+
+
+export const resetPassword = async (req, res, next) => {
+    try {
+        // Validate request
+        const { value, error } = resetPasswordValidator.validate(req.body);
+        if (error) {
+            return res.status(422).json(error);
+        }
+        // Find Reset Token by id
+        const resetToken = await ResetTokenModel.findById(value.resetToken);
+        if (!resetToken) {
+            return res.status(404).json('Reset Token Not Found');
+        }
+        // Check if token is valid
+        if (resetToken.expired || (Date.now() >= new Date(resetToken.expiresAt).valueOf())) {
+            return res.status(409).json('Invalid Reset Token');
+        }
+        // Encrypt user password
+        const hashedPassword = bcrypt.hashSync(value.password, 10);
+        // Update user password
+        await userModel.findByIdAndUpdate(resetToken.userId, { password: hashedPassword });
+        // Expire reset token
+        await ResetTokenModel.findByIdAndUpdate(value.resetToken, { expired: true });
+        // Return response
+        res.status(200).json('Password Reset Successful!');
+    } catch (error) {
+        next(error);
+    }
+}
+
+export const createUser = async (req, res, next) => {
+    try {
+        // Validate request
+        const { value, error } = createUserValidator.validate(req.body);
+        if (error) {
+            return res.status(422).json(error);
+        }
+        // Encrypt user password
+        const hashedPassword = bcrypt.hashSync(value.password, 10);
+        // Create user
+        await userModel.create({
+            ...value,
+            password: hashedPassword
+        });
+        // Send email to user
+        await mailTransport.sendMail({
+            to: value.email,
+            subject: "User Account Created!",
+            text: `Dear user,\n\nA user account has been created for you with the following credentials.\n\nUsername: ${value.username}\nEmail: ${value.email}\nPassword: ${value.password}\nRole: ${value.role}\n\nThank you!`,
+        });
+        // Return response
+        res.status(201).json('User Created');
+    } catch (error) {
+        next(error);
+    }
+}
+
+export const deleteUser = async (req, res, next) => {
+    try {
+        // Get user id from session or request
+        const id = req.session?.user?.id || req?.user?.id;
+        // Ensure user is not deleting themselves
+        if (id === req.params.id) {
+            return res.status(409).json('Cannot Delete Self');
+        }
+        // Delete user
+        await userModel.findByIdAndDelete(req.params.id);
+        // Return response
+        res.status(200).json('User Deleted');
+    } catch (error) {
+        next(error);
+    }
+}
