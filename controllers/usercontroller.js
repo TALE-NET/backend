@@ -3,7 +3,7 @@ import { userSchema, loginValidator, forgotPasswordValidator, resetPasswordValid
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 
-export const signup = async (req, res,next) => {
+export const signup = async (req, res, next) => {
     try {
         console.log('Received signup request:', req.body);
         // Validate the data provided by the user
@@ -21,43 +21,47 @@ export const signup = async (req, res,next) => {
 
         if (findIfUserExist) {
             console.log('User already exists:', findIfUserExist);
-            return res.status(401).send("User has already signed up");   
-        } 
-        
+            return res.status(401).send("User has already signed up");
+        }
+
         else {
             console.log('User does not exist, creating new user');
 
             // Password matching
-            if (value.password !== value.confirmpassword)return res.status(400).json({message:"Password do not match"})
+            if (value.password !== value.confirmpassword)
+                return res.status(400).json({ message: "Passwords do not match" });
 
             // Encrypt user password
-            const hashedPassword = await bcrypt.hashSync(value.password, 10);
+            const hashedPassword = bcrypt.hashSync(value.password, 10);
+
             // Create user
-            await userModel.create({
-                ... value,
-                password:hashedPassword
+            const newUser = await userModel.create({
+                ...value,
+                password: hashedPassword,
+                confirmpassword: hashedPassword
             });
             console.log('New user created:', newUser);
 
             return res.status(201).json({ message: "Registration successful" });
-
-           
-        }        
+        }
     } catch (error) {
-        // console.error('Error during signup:', error);
-        // return res.status(500).send('Internal Server Error');
-        next(error)
+        next(error);
     }
 };
 
 
+
 // Function for session log in
-export const sessionLogin = async (req, res,next) => {
+export const sessionLogin = async (req, res, next) => {
     try {
-        const { value, error} = loginValidator.validate(req.body);
+        const { value, error } = loginValidator.validate(req.body);
         if (error) {
+            console.log('Validation Error:', error);
             return res.status(422).json(error);
         }
+
+        // Log input for debugging
+        console.log('Login attempt:', value);
 
         // Find a user using their username or email
         const user = await userModel.findOne({
@@ -66,33 +70,41 @@ export const sessionLogin = async (req, res,next) => {
                 { email: value.email },
             ]
         });
+
         if (!user) {
-            return  res.status(401).json('User not found');
-        } else {
-            // Verify their password
-            const correctpassword = bcrypt.compareSync(value.password, user.password);
-            if (!correctpassword) {
-                return   res.status(401).json('Invalid login credentials');
-            } else {
-                // Generate a session for the user
-                req.session.user = { id: user.id }
-                return   res.status(200).json('Login successful');
-            }
+            console.log('User not found for:', value.username || value.email);
+            return res.status(401).json('User not found');
         }
+
+        // Log user data fetched from DB
+        console.log('User found:', user);
+
+        // Verify their password
+        const correctPassword = bcrypt.compareSync(value.password, user.password);
+        if (!correctPassword) {
+            console.log('Password mismatch for user:', user.username);
+            return res.status(401).json('Invalid login credentials');
+        }
+
+        // Generate a session for the user
+        req.session.user = { id: user.id };
+        console.log('Login successful for user:', user.username);
+        return res.status(200).json('Login successful');
     } catch (error) {
-        next(error)
+        next(error);
     }
 }
+
 
 
 // Function for token log in
 export const tokenLogin = async (req, res, next) => {
     try {
-       // Validate request
-       const { value, error } = loginValidator.validate(req.body);
-       if (error) {
-           return res.status(422).json(error);
-       }
+        // Validate request
+        const { value, error } = loginValidator.validate(req.body);
+        if (error) {
+            return res.status(422).json(error);
+        }
         // Find a user using their username or email
         const user = await userModel.findOne({
             $or: [
@@ -101,7 +113,7 @@ export const tokenLogin = async (req, res, next) => {
             ]
         });
         if (!user) {
-            return  res.status(401).json('User not found');
+            return res.status(401).json('User not found');
         } else {
             // Verify their password
             const correctpassword = bcrypt.compareSync(value.password, user.password);
@@ -110,12 +122,12 @@ export const tokenLogin = async (req, res, next) => {
             } else {
                 // Create a token for the user
                 const token = jwt.sign(
-                    { id: user.id},
-                     process.env.JWT_PRIVATE_KEY,
+                    { id: user.id },
+                    process.env.JWT_PRIVATE_KEY,
                     { expiresIn: '72h' }
-                    );
+                );
                 // Return response
-                return  res.status(200).json({
+                return res.status(200).json({
                     message: 'User logged in',
                     accessToken: token,
                     // user: {
@@ -134,15 +146,15 @@ export const tokenLogin = async (req, res, next) => {
 
 
 // Function to get everything about one user
-export const getUser = async (req, res,next) => {
+export const getUser = async (req, res, next) => {
     try {
         // Get user id from session or request
-          const id = req.session?.user?.id || req?.user?.id;
+        const id = req.session?.user?.id || req?.user?.id;
         // Get user details/Find user by id
         const getUserDetails = await userModel
             .findById(id)
-            .select({password: false })
-         res.status(200).json({user: getUserDetails})
+            .select({ password: false })
+        res.status(200).json({ user: getUserDetails })
     } catch (error) {
         next(error)
         console.log(error)
@@ -167,10 +179,10 @@ export const getUsers = async (req, res, next) => {
         }
         // Find users based on the filter
         const user = await userModel
-        .find(filter)
-        .select({password:false})
+            .find(filter)
+            .select({ password: false })
         // Return response
-        return res.status(200).json({user});
+        return res.status(200).json({ user });
     } catch (error) {
         next(error)
     }
@@ -179,16 +191,16 @@ export const getUsers = async (req, res, next) => {
 
 
 // Function to update a user account
-export const updateUser = async (req, res,next) => {
+export const updateUser = async (req, res, next) => {
     try {
-            // Validate request
-            const { value, error } = updateUserValidator.validate(req.body);
-            if (error) {
-                return res.status(422).json(error);
-            }
+        // Validate request
+        const { value, error } = updateUserValidator.validate(req.body);
+        if (error) {
+            return res.status(422).json(error);
+        }
         // Update user by id
-     await userModel.findByIdAndUpdate(req.params.id, value, { new: true });
-        return  res.status(200).json('User Information is Updated');
+        await userModel.findByIdAndUpdate(req.params.id, value, { new: true });
+        return res.status(200).json('User Information is Updated');
     } catch (error) {
         console.log(error)
         next(error)
@@ -198,7 +210,7 @@ export const updateUser = async (req, res,next) => {
 
 
 // Function to log out
-export const logout = async (req, res,next) => {
+export const logout = async (req, res, next) => {
     try {
         // Destroy user session
         await req.session.destroy();
