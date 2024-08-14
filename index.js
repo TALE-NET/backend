@@ -31,14 +31,14 @@ expressOasGenerator.handleResponses(app, {
 
 
 // Apply middlewares
-app.use(cors({
-    credentials: true,
-    origin: process.env.ALLOWED_DOMAINS?.split(',') || []
-}));
+// app.use(cors({
+//     credentials: true,
+//     origin: process.env.ALLOWED_DOMAINS?.split(',') || []
+// }));
+
 app.use(express.json());
 
 app.use(cors({ credentials: true, origin: '*' }));
-
 app.use(session({
     secret: process.env.SESSION_SECRET,
     resave: false,
