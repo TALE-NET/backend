@@ -17,19 +17,19 @@ export const createCompany = async (req, res, next) => {
      
       const user = await companyModel.findById(id);
       if (!user) {
-        return res.status(404).send("Event not found");
+        return res.status(404).send("User not found");
       }
   
-      const event = await companyModel.create({
+      const company = await companyModel.create({
           ...value, 
           user: id
        });
   // The products here is being referenced from the UserModel object created {products} there
-      user.products.push(event._id)
+      user.company.push(company._id)
   
       await user.save();
   
-      return res.status(201).json({message: 'Event created successfully', event });
+      return res.status(201).json({message: 'Company Details created successfully', company });
     } catch (error) {
       // console.log(error)
   next(error)
@@ -37,7 +37,7 @@ export const createCompany = async (req, res, next) => {
   };
   
 
-  // Function to update a event
+  // Function to update a Company
 export const updateCompany = async (req, res) => {
     try {
         const updateFields = { ...req.body };
@@ -59,7 +59,7 @@ export const updateCompany = async (req, res) => {
         if (!user) {
             return res.status(404).send('User Not Found');
         }
-        // Update event by id
+        // Update company by id
         const company = await companyModel.findByIdAndUpdate(req.params.id, value, { new: true });
         if (!company) {
             return res.status(404).send('Company Not Found');
@@ -72,7 +72,7 @@ export const updateCompany = async (req, res) => {
 };
 
 
-// Function to get one event
+// Function to get one company
 export const getCompany = async (req, res) => {
     try {
         // Get skill by id
@@ -84,10 +84,10 @@ export const getCompany = async (req, res) => {
     }
 }
 
-// Function to get all events
+// Function to get all company
 export const getCompanys = async (req, res,next) => {
     try {
-      // //we are fetching events that belongs to a particular user
+      // //we are fetching company that belongs to a particular user
       const id = req.session?.user?.id || req?.user?.id
       const allComp = await companyModel.find({ user: id });
       return res.status(200).json({ Company: allComp });
@@ -108,12 +108,12 @@ export const getCompanys = async (req, res,next) => {
         return res.status(404).send("User Not Found");
       }
   
-      const comp = await companyModel.findByIdAndDelete(req.params.id);
-        if (!comp) {
+      const company = await companyModel.findByIdAndDelete(req.params.id);
+        if (!company) {
             return res.status(404).send("Company Information Not Found");
         }
   
-        user.comp.pull(req.params.id);
+        user.company.pull(req.params.id);
         await user.save();
 
         return res.status(200).json({message: "Company Information Deleted"});

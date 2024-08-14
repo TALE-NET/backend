@@ -13,6 +13,10 @@ const userSchema = new Schema({
    username: {type: String, unique: true },
    googleId: { type: String }, 
    products: [{ type: Types.ObjectId, ref: 'Product' }],
+   gallery: [{ type: Types.ObjectId, ref: 'Gallery' }],
+   profile: [{ type: Types.ObjectId, ref: 'Profile' }],
+   company: [{ type: Types.ObjectId, ref: 'Company' }],
+   event: [{ type: Types.ObjectId, ref: 'Event' }],
    role: {type: String, default: 'user',enum: ['admin','vendor','user']}
 },
 {

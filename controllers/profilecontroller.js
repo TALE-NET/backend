@@ -98,15 +98,15 @@ export const deleteProfile = async (req, res, next) => {
         return res.status(404).send("User not found");
       }
   
-      const event = await eventModel.findByIdAndDelete(req.params.id);
-        if (!event) {
-            return res.status(404).send("Event not found");
+      const profile = await profileModel.findByIdAndDelete(req.params.id);
+        if (!profile) {
+            return res.status(404).send("Profile not found");
         }
   
-        user.event.pull(req.params.id);
+        user.profile.pull(req.params.id);
         await user.save();
 
-        return res.status(200).json({message: "Event deleted"});
+        return res.status(200).json({message: "Profile deleted"});
     } catch (error) {
       // return res.status(500).json({error})
       next(error)

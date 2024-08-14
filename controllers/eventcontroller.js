@@ -25,7 +25,7 @@ export const createEvent = async (req, res, next) => {
           user: id
        });
   // The products here is being referenced from the UserModel object created {products} there
-      user.products.push(event._id)
+      user.event.push(event._id)
   
       await user.save();
   
