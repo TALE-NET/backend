@@ -7,12 +7,13 @@ import MongoStore from "connect-mongo";
 import { restartServer } from "./restart_server.js";
 import errorHandler from "errorhandler";
 import { userRouter } from "./routes/userroute.js";
-import adminRouter from "./routes/admin.js";
+import {adminRouter} from "./routes/admin.js";
 import { productRouter } from "./routes/products.js";
 import passport from 'passport';
 import './config/passport.js'; 
 import { companyRouter } from "./routes/company.js";
 import { eventRouter } from "./routes/event.js";
+import { galleryRouter } from "./routes/gallery.js";
 import { userProfileRouter } from "./routes/profile.js";
 
 
@@ -24,7 +25,7 @@ console.log('Database is connected');
 
 expressOasGenerator.handleResponses(app, {
     alwaysServeDocs: true,
-    tags: [ 'auth','users', 'product','profile', 'company', 'event'],
+    tags: [ 'auth','users', 'product','profile', 'company', 'event', 'gallery'],
     mongooseModels: mongoose.modelNames(),
 });
 
@@ -61,6 +62,7 @@ app.use(productRouter);
 app.use(companyRouter);
 app.use(userProfileRouter);
 app.use(eventRouter);
+app.use(galleryRouter);
 expressOasGenerator.handleRequests();
 // Swagger UI should be served last to avoid conflicts with API routes
 app.use((req, res) => res.redirect('/api-docs/'));
